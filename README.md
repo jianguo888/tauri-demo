@@ -30,7 +30,7 @@ cd src-tauri && cargo fetch
 Build with tauri-cli.
 
 ```bash
-cd src-tauri && cargo tauri ohos --build
+cd src-tauri && cargo tauri ohos build
 ```
 
 If you get the following error, ignore it.
