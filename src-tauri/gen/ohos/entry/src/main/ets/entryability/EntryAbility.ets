@@ -7,7 +7,6 @@ export default class EntryAbility extends RustAbility {
   // change to dynamic library name
   public moduleName: string = "tauri_demo_lib"
   public defaultPage: boolean = true;
-  public mode: 'xcomponent' | 'webview' = 'webview'
 
   async onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): Promise<void> {
     super.onCreate(want, launchParam);
