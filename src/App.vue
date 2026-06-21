@@ -216,6 +216,92 @@ async function queryWeather() {
   }
 }
 
+// ==================== 历史上的今天 ====================
+const todayData = ref<any>(null);
+const todayLoading = ref(false);
+const todayError = ref("");
+
+async function fetchTodayHistory() {
+  if (todayData.value) return; // 已缓存
+  todayLoading.value = true;
+  todayError.value = "";
+  try {
+    const res = await invoke<string>("today", {
+      token: token.value,
+      date: null,
+    });
+    const parsed = JSON.parse(res);
+    if (parsed.success && parsed.data) {
+      todayData.value = parsed.data;
+    } else {
+      todayError.value = parsed.message || "获取失败";
+    }
+  } catch (e) {
+    todayError.value = `请求出错: ${e}`;
+  } finally {
+    todayLoading.value = false;
+  }
+}
+
+// ==================== 星座运势 ====================
+const CONSTELLATIONS = [
+  "白羊座", "金牛座", "双子座", "巨蟹座",
+  "狮子座", "处女座", "天秤座", "天蝎座",
+  "射手座", "摩羯座", "水瓶座", "双鱼座",
+];
+const selectedConstellation = ref("白羊座");
+const starData = ref<any>(null);
+const starLoading = ref(false);
+const starError = ref("");
+
+async function fetchConstellation() {
+  starLoading.value = true;
+  starError.value = "";
+  starData.value = null;
+  try {
+    const res = await invoke<string>("constellation", {
+      token: token.value,
+      constellation: selectedConstellation.value,
+    });
+    const parsed = JSON.parse(res);
+    if (parsed.success && parsed.data) {
+      starData.value = parsed.data;
+    } else {
+      starError.value = parsed.message || "获取失败";
+    }
+  } catch (e) {
+    starError.value = `请求出错: ${e}`;
+  } finally {
+    starLoading.value = false;
+  }
+}
+
+// ==================== 每日早报 ====================
+const morningData = ref<any>(null);
+const morningLoading = ref(false);
+const morningError = ref("");
+
+async function fetchMorning() {
+  if (morningData.value) return; // 已缓存
+  morningLoading.value = true;
+  morningError.value = "";
+  try {
+    const res = await invoke<string>("morning", {
+      token: token.value,
+    });
+    const parsed = JSON.parse(res);
+    if (parsed.success || parsed.code === 200) {
+      morningData.value = parsed.data;
+    } else {
+      morningError.value = parsed.message || "获取失败";
+    }
+  } catch (e) {
+    morningError.value = `请求出错: ${e}`;
+  } finally {
+    morningLoading.value = false;
+  }
+}
+
 async function greet() {
   greetMsg.value = await invoke("greet", { name: name.value });
 }
@@ -355,6 +441,74 @@ async function greet() {
         <button v-if="weatherData.index.length > 4" class="toggle-btn" @click="showAllIndexes = !showAllIndexes">
           {{ showAllIndexes ? "收起" : `展开全部 (${weatherData.index.length}项)` }}
         </button>
+      </div>
+    </section>
+
+    <!-- ========== 历史上的今天 ========== -->
+    <section class="card feature-card">
+      <h3 class="feature-header" @click="fetchTodayHistory">
+        📜 历史上的今天
+        <span class="toggle-hint">{{ todayData ? '' : '点击加载' }}</span>
+      </h3>
+      <div v-if="todayLoading" class="feature-loading"><span class="spinner"></span> 加载中...</div>
+      <div v-else-if="todayError" class="error-msg">{{ todayError }}</div>
+      <div v-else-if="todayData" class="today-list">
+        <div v-for="evt in todayData" :key="evt.id" class="today-item">
+          <span class="today-year">{{ evt.year }}年</span>
+          <div class="today-body">
+            <strong>{{ evt.title }}</strong>
+            <p v-if="evt.desc">{{ evt.desc }}</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== 星座运势 ========== -->
+    <section class="card feature-card">
+      <h3 class="feature-header">🔮 星座运势</h3>
+      <div class="star-form">
+        <select v-model="selectedConstellation" class="star-select">
+          <option v-for="s in CONSTELLATIONS" :key="s" :value="s">{{ s }}</option>
+        </select>
+        <button class="star-btn" @click="fetchConstellation" :disabled="starLoading">
+          <span v-if="starLoading" class="spinner"></span>
+          {{ starLoading ? '查询中...' : '查询运势' }}
+        </button>
+      </div>
+      <div v-if="starError" class="error-msg">{{ starError }}</div>
+      <div v-if="starData" class="star-content">
+        <div class="star-date">{{ starData.day?.date }} · {{ selectedConstellation }}</div>
+        <div class="star-grid">
+          <div class="star-metric"><label>综合</label><span>{{ starData.day?.all }}</span></div>
+          <div class="star-metric"><label>爱情</label><span>{{ starData.day?.love }}</span></div>
+          <div class="star-metric"><label>事业</label><span>{{ starData.day?.work }}</span></div>
+          <div class="star-metric"><label>财运</label><span>{{ starData.day?.money }}</span></div>
+          <div class="star-metric"><label>健康</label><span>{{ starData.day?.health }}</span></div>
+        </div>
+        <div class="star-lucky">
+          <span>🌟 {{ starData.day?.lucky_star }}</span>
+          <span>🎨 {{ starData.day?.lucky_color }}</span>
+          <span>🔢 {{ starData.day?.lucky_number }}</span>
+        </div>
+        <div class="star-text">{{ starData.day?.all_text }}</div>
+      </div>
+    </section>
+
+    <!-- ========== 每日早报 ========== -->
+    <section class="card feature-card">
+      <h3 class="feature-header" @click="fetchMorning">
+        📰 每日早报
+        <span class="toggle-hint">{{ morningData ? '' : '点击加载' }}</span>
+      </h3>
+      <div v-if="morningLoading" class="feature-loading"><span class="spinner"></span> 加载中...</div>
+      <div v-else-if="morningError" class="error-msg">{{ morningError }}</div>
+      <div v-else-if="morningData" class="morning-content">
+        <div class="morning-date">{{ morningData.date }}</div>
+        <div v-for="(news, i) in morningData.news" :key="i" class="morning-news-item">
+          <span class="morning-index">{{ i + 1 }}</span>
+          <span>{{ news }}</span>
+        </div>
+        <div v-if="morningData.weiyu" class="morning-weiyu">{{ morningData.weiyu }}</div>
       </div>
     </section>
 
@@ -772,6 +926,293 @@ async function greet() {
   color: #396cd8;
 }
 
+/* ========== 历史上的今天 ========== */
+.feature-card .feature-header {
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  user-select: none;
+}
+.feature-card .toggle-hint {
+  font-size: 0.75em;
+  font-weight: 400;
+  color: #396cd8;
+}
+.feature-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+  padding: 16px 0;
+  color: #999;
+}
+.today-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+.today-item {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.today-year {
+  font-size: 0.78em;
+  font-weight: 700;
+  color: #396cd8;
+  white-space: nowrap;
+  padding-top: 2px;
+  min-width: 48px;
+}
+.today-body {
+  flex: 1;
+}
+.today-body strong {
+  font-size: 0.92em;
+}
+.today-body p {
+  margin: 2px 0 0;
+  font-size: 0.82em;
+  color: #888;
+  line-height: 1.5;
+}
+
+/* ========== 星座运势 ========== */
+.star-form {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.star-select {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 10px;
+  font-size: 0.95em;
+  background: #fff;
+  color: #333;
+  appearance: auto;
+}
+.star-btn {
+  padding: 10px 18px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #d4366c 0%, #b82d5a 100%);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.star-btn:disabled {
+  opacity: 0.6;
+}
+.star-content {
+  margin-top: 8px;
+}
+.star-date {
+  font-size: 0.85em;
+  color: #999;
+  margin-bottom: 10px;
+  text-align: center;
+}
+.star-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.star-metric {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 6px;
+  background: #f8f8f8;
+  border-radius: 10px;
+}
+.star-metric label {
+  font-size: 0.72em;
+  color: #999;
+}
+.star-metric span {
+  font-size: 1.1em;
+  font-weight: 700;
+  color: #d4366c;
+}
+.star-lucky {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 0.85em;
+  color: #666;
+  margin-bottom: 10px;
+}
+.star-text {
+  font-size: 0.85em;
+  color: #555;
+  line-height: 1.7;
+  background: #fafafa;
+  border-radius: 10px;
+  padding: 12px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+/* ========== 每日早报 ========== */
+.morning-content {
+  max-height: 520px;
+  overflow-y: auto;
+}
+.morning-date {
+  font-size: 0.85em;
+  color: #999;
+  margin-bottom: 10px;
+  text-align: center;
+}
+.morning-news-item {
+  display: flex;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 0.88em;
+  line-height: 1.6;
+  border-bottom: 1px solid #f0f0f0;
+}
+.morning-news-item:last-child {
+  border-bottom: none;
+}
+.morning-index {
+  font-weight: 700;
+  color: #396cd8;
+  min-width: 22px;
+  text-align: right;
+  flex-shrink: 0;
+}
+.morning-weiyu {
+  margin-top: 12px;
+  padding: 12px;
+  background: #fef8e8;
+  border-radius: 10px;
+  font-size: 0.88em;
+  color: #b8860b;
+  line-height: 1.6;
+  font-style: italic;
+}
+
+/* ========== 平板 / PC 自适应 ========== */
+@media (min-width: 768px) {
+  .app-container {
+    max-width: 960px;
+    padding: 24px 32px 48px;
+  }
+  .app-header h1 {
+    font-size: 2em;
+  }
+  .search-form {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+  }
+  .search-form .field-row {
+    flex: 1;
+    margin-bottom: 0;
+  }
+  .search-btn {
+    width: auto;
+    min-width: 160px;
+    padding: 10px 24px;
+  }
+  .weather-main-card {
+    padding: 32px;
+  }
+  .weather-icon-big {
+    font-size: 3.6em;
+  }
+  .temp-big {
+    font-size: 4.8em;
+  }
+  .details-grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+  .aqi-details {
+    grid-template-columns: repeat(6, 1fr);
+  }
+  .hour-item {
+    min-width: 72px;
+    padding: 12px 14px;
+  }
+  .index-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 20px;
+  }
+  .star-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+  .today-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 20px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .app-container {
+    max-width: 1200px;
+    padding: 32px 40px 56px;
+  }
+  /* 主内容区 2 列布局，更充分利用横向空间 */
+  .app-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+  .app-header,
+  .search-section,
+  .error-msg,
+  .weather-section,
+  .section-divider,
+  .demo-section {
+    grid-column: 1 / -1;
+  }
+  /* 天气内部卡片也 2 列 */
+  .weather-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .weather-main-card {
+    grid-column: 1 / -1;
+  }
+  .weather-section .card {
+    margin-bottom: 0;
+  }
+  .details-grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+  .hourly-scroll {
+    justify-content: space-between;
+  }
+  .hour-item {
+    min-width: 80px;
+  }
+  .index-list {
+    grid-template-columns: 1fr 1fr;
+  }
+  .star-text {
+    max-height: 200px;
+  }
+  .today-list {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 /* ========== 移动端适配 ========== */
 @media (max-width: 440px) {
   .app-container {
@@ -907,5 +1348,14 @@ input, button { font-family: inherit; }
   .section-divider { border-top-color: #333 !important; }
   .toggle-btn { border-color: #555 !important; color: #aaa !important; }
   .toggle-btn:hover { border-color: #88bbff !important; color: #88bbff !important; }
+  /* 新功能暗色适配 */
+  .star-select { background: #2a2a4a !important; color: #f0f0f0 !important; border-color: #444 !important; }
+  .star-metric { background: #2a2a4a !important; }
+  .star-metric label { color: #aaa !important; }
+  .star-text { background: #252545 !important; color: #ccc !important; }
+  .morning-news-item { border-bottom-color: #333 !important; }
+  .morning-weiyu { background: #2a2a1a !important; color: #cca800 !important; }
+  .today-body p { color: #aaa !important; }
+  .feature-loading { color: #aaa !important; }
 }
 </style>
